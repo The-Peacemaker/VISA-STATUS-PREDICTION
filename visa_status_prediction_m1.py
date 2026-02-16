@@ -1,7 +1,5 @@
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
 import warnings
 import os
 
@@ -102,108 +100,36 @@ def preprocess_data(df):
     print("✓ Data types optimized (objects -> categories)")
     return df_clean
 
-def feature_engineering(df):
+def prepare_target(df):
     """
-    Creates new features from existing ones.
+    Generates the target, handling the specific requirements.
+    Note: Dataset strictly supports binary Classification (Certified/Denied).
+    Processing time (Regression) requires date columns not present in EasyVisa.csv.
     
     Args:
-        df (pd.DataFrame): Preprocessed dataset.
+        df (pd.DataFrame): The dataset.
         
     Returns:
-        pd.DataFrame: Dataset with new features.
+        pd.DataFrame: Dataset with target column.
     """
     print("\n" + "=" * 60)
-    print("FEATURE ENGINEERING")
+    print("TARGET GENERATION")
     print("=" * 60)
     
-    # 1. Company Age
-    current_year = 2026
-    df['company_age'] = current_year - df['yr_of_estab']
-    print("✓ Created 'company_age'")
-    
-    # 2. Standardized Wage (Yearly)
-    def standardize_wage(row):
-        wage = row['prevailing_wage']
-        unit = row['unit_of_wage']
-        if unit == 'Hour':
-            return wage * 40 * 52
-        elif unit == 'Week':
-            return wage * 52
-        elif unit == 'Month':
-            return wage * 12
-        else:
-            return wage
-
-    df['yearly_wage'] = df.apply(standardize_wage, axis=1)
-    print("✓ Created 'yearly_wage'")
-    
-    # 3. Wage Category
-    df['wage_category'] = pd.qcut(df['yearly_wage'], q=4, labels=['Low', 'Medium', 'High', 'Very High'])
-    print("✓ Created 'wage_category'")
-    
-    # 4. Company Size Category
-    def categorize_size(n):
-        if n < 50: return 'Small'
-        elif n < 250: return 'Medium'
-        elif n < 1000: return 'Large'
-        else: return 'Enterprise'
-        
-    df['company_size'] = df['no_of_employees'].apply(categorize_size)
-    print("✓ Created 'company_size'")
-    
-    # 5. Target Binary
-    # Case Status: Certified -> 1, Denied -> 0
+    # Target: Case Status
+    # We create a binary target for classification as dates for regression (processing time) are unavailable.
     df['target'] = df['case_status'].apply(lambda x: 1 if x == 'Certified' else 0)
-    print("✓ Created binary 'target' variable")
+    print("✓ Created binary 'target' variable from 'case_status'")
+    print(f"  Mapping: Certified -> 1, Denied -> 0")
     
     return df
-
-def generate_visualizations(df):
-    """
-    Generates and saves exploratory visualizations.
-    
-    Args:
-        df (pd.DataFrame): Dataset with features.
-    """
-    print("\n" + "=" * 60)
-    print("GENERATING VISUALIZATIONS")
-    print("=" * 60)
-    
-    sns.set_palette('husl')
-    
-    # 1. Target Distribution
-    plt.figure(figsize=(10, 6))
-    ax = sns.countplot(x='case_status', data=df)
-    plt.title('Distribution of Case Status')
-    plt.savefig('target_distribution.png')
-    plt.close()
-    print("✓ Saved 'target_distribution.png'")
-    
-    # 2. Numerical Distributions
-    num_cols = ['no_of_employees', 'yr_of_estab', 'prevailing_wage', 'company_age', 'yearly_wage']
-    df[num_cols].hist(figsize=(15, 10), bins=30, edgecolor='black')
-    plt.tight_layout()
-    plt.savefig('numerical_distributions.png')
-    plt.close()
-    print("✓ Saved 'numerical_distributions.png'")
-    
-    # 3. Correlation Heatmap
-    plt.figure(figsize=(12, 10))
-    # Select only numeric, excluding target if it's there as we want correlation matrix of features + target
-    numeric_df = df.select_dtypes(include=[np.number])
-    corr = numeric_df.corr()
-    sns.heatmap(corr, annot=True, cmap='RdBu_r', center=0, fmt='.2f')
-    plt.title('Feature Correlation Heatmap')
-    plt.savefig('correlation_heatmap.png')
-    plt.close()
-    print("✓ Saved 'correlation_heatmap.png'")
 
 def encode_data(df):
     """
     Encodes categorical variables for machine learning.
     
     Args:
-        df (pd.DataFrame): Feature-engineered dataset.
+        df (pd.DataFrame): Dataset with target.
         
     Returns:
         pd.DataFrame: Encoded dataset ready for ML.
@@ -225,10 +151,10 @@ def encode_data(df):
     
     # One-Hot Encoding
     categorical_cols = ['continent', 'education_of_employee', 'region_of_employment', 
-                        'unit_of_wage', 'wage_category', 'company_size']
+                        'unit_of_wage']
+    # Removed 'wage_category' and 'company_size' as they were M2 features
     
     df_encoded = pd.get_dummies(df_encoded, columns=categorical_cols, prefix_sep='_', drop_first=False)
-    # Note: drop_first=False to keep all categories for analysis, can change for specific models
     
     print("✓ One-Hot Encoding applied")
     
@@ -254,25 +180,22 @@ def main():
     # 3. Preprocess
     df_clean = preprocess_data(df)
     
-    # 4. Feature Engineering
-    df_featured = feature_engineering(df_clean)
+    # 4. Target Generation (Milestone 1)
+    df_targeted = prepare_target(df_clean)
+   
+    # 5. Encoding (Milestone 1)
+    df_encoded = encode_data(df_targeted)
     
-    # 5. Visualizations
-    generate_visualizations(df_featured)
-    
-    # 6. Encoding
-    df_encoded = encode_data(df_featured)
-    
-    # 7. Export
+    # 6. Export
     print("\n" + "=" * 60)
     print("EXPORTING DATA")
     print("=" * 60)
     
-    df_featured.to_csv('visa_data_preprocessed.csv', index=False)
-    print("✓ Saved 'visa_data_preprocessed.csv' (Cleaned with categories)")
+    df_targeted.to_csv('visa_data_preprocessed.csv', index=False)
+    print("✓ Saved 'visa_data_preprocessed.csv' (Cleaned & Preprocessed)")
     
     df_encoded.to_csv('visa_data_encoded.csv', index=False)
-    print("✓ Saved 'visa_data_encoded.csv' (Encoded for ML)")
+    print("✓ Saved 'visa_data_encoded.csv' (Encoded for Modeling)")
     
     print("\nMILESTONE 1 COMPLETED SUCCESSFULLY!")
 
