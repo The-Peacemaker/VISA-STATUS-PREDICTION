@@ -74,8 +74,42 @@ For Milestone 2, we advanced from raw data to actionable intelligence, performin
   5. `5_bar_continent_avg.png`
   6. `6_bar_education_avg.png`
   7. `7_monthly_trend.png`
+  
+---
+
+## 🤖 Milestone 3: Model Building & Evaluation
+*Status: **Completed***
+
+In Milestone 3, we transitioned from data engineering to predictive modeling. We implemented multiple regression algorithms to predict `processing_time_days` and performed rigorous evaluation to select the best-performing model.
+
+### Key Achievements:
+- **Model Development:**
+  - Implemented **Linear Regression** as a baseline.
+  - Developed a **Random Forest Regressor** for capturing non-linear relationships.
+- **Performance Evaluation:**
+  - Evaluated models using **Mean Absolute Error (MAE)**, **Root Mean Squared Error (RMSE)**, and **R² Score**.
+  - Conducted **Cross-Validation** to ensure model robustness and prevent overfitting.
+- **Model Selection & Export:**
+  - Selected the **Random Forest Regressor** as the superior model.
+  - Exported the final model and scaler for future deployment.
+- **Advanced Visualizations:** Generated deep performance insights, including Feature Importance, Prediction Errors, and Cross-Validation variance plots.
+
+**Outputs (in `Milestone_3/`):**
+- `visa_status_prediction_m3.py`: The core modeling and evaluation engine.
+- `milestone3_sample.ipynb`: Comprehensive notebook with step-by-step execution and analysis.
+- **`m3_saved_models/`** folder containing:
+  - `best_model.joblib`: The serialized Random Forest model.
+  - `scaler.joblib`: Pre-fitted standard scaler.
+  - `model_comparison_results.csv`: Comparative metrics for all tested models.
+- **`m3_model_visualizations/`** folder containing:
+  - R² & RMSE Comparison charts.
+  - Actual vs. Predicted scatter plots.
+  - Feature Importance analysis.
+  - Residual Distribution & Prediction Error plots.
+  - Cross-Validation stability boxplots.
 
 ---
+
 
 ## ⚙️ How To Run Locally
 
