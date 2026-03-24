@@ -198,7 +198,7 @@ export default function DashboardPage() {
               </Field>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               <Field label="No. of Employees">
                 <input
                   type="number"
@@ -232,11 +232,10 @@ export default function DashboardPage() {
                   onChange={handleChange}
                   min={0}
                   step="0.1"
-                  placeholder="e.g., 4200 for the selected unit"
+                  placeholder="e.g., 4200"
                   className="w-full rounded-xl border-[3px] border-borderStrong bg-obsidian/85 px-4 py-3 text-ivory placeholder-ivory/40 outline-none transition focus:border-gold focus:shadow-glowGold"
                   required
                 />
-                <p className="mt-1 text-xs text-ivory/60">Enter wage amount in USD for the selected unit (Hour/Week/Month/Year)</p>
               </Field>
             </div>
 
