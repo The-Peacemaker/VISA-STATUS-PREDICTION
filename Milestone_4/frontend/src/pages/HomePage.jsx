@@ -120,7 +120,7 @@ export default function HomePage() {
                 transition={{ duration: 0.5, ease: 'easeOut' }}
                 className="block"
               >
-                Visa Status Prediction
+                Visa Status Prediction &
               </motion.span>
               <motion.span
                 initial={{ opacity: 0, y: 18 }}
