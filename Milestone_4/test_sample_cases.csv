@@ -1,0 +1,6 @@
+continent,education_of_employee,has_job_experience,requires_job_training,no_of_employees,yr_of_estab,region_of_employment,prevailing_wage,unit_of_wage,full_time_position,application_month
+Asia,Master's,Y,N,5000,2008,West,42.5,Hour,Y,1
+Europe,Bachelor's,N,Y,320,2019,Northeast,6800,Month,Y,7
+North America,Doctorate,Y,N,12000,1998,Midwest,88000,Year,Y,12
+Africa,High School,N,N,75,2015,South,560,Week,N,3
+Oceania,Master's,Y,Y,920,2003,Island,39.2,Hour,Y,10
