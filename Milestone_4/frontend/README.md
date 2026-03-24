@@ -40,6 +40,15 @@ Ancient Neo-Brutalism:
 npm install
 npm run dev
 ```
+## Live Backend (Optional)
+
+To use a deployed Vercel backend instead of local mock mode, create a `.env` file in `frontend/`:
+
+```bash
+VITE_API_BASE_URL=https://your-vercel-backend.vercel.app
+```
+
+When this value is set, the dashboard calls `/api/predict` on that backend.
 
 ## Build
 

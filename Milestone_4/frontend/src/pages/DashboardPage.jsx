@@ -18,7 +18,7 @@ import AnimatedButton from '../components/AnimatedButton';
 import SectionReveal from '../components/SectionReveal';
 import SkeletonCard from '../components/SkeletonCard';
 import { useToast } from '../components/ToastProvider';
-import { predictVisa } from '../lib/mockApi';
+import { getPredictionMode, predictVisa } from '../lib/mockApi';
 import { savePrediction } from '../lib/storage';
 
 const initialForm = {
@@ -42,6 +42,7 @@ const employmentRegions = ['Northeast', 'Midwest', 'South', 'West', 'Island'];
 const wageUnits = ['Hour', 'Week', 'Month', 'Year'];
 
 const statusChips = ['Prediction Workspace', 'Confidence Scoring', 'Trend Analytics'];
+const predictionMode = getPredictionMode();
 
 function normalizeConfidencePercent(confidenceValue) {
   const numeric = Number(confidenceValue);
@@ -113,7 +114,9 @@ export default function DashboardPage() {
           Submit application context and review estimated processing-time output with confidence and chart-based visualization.
         </p>
         <p className="mt-2 max-w-3xl text-sm text-ivory/60">
-          Note: the current environment returns simulated prediction responses for interface validation.
+          {predictionMode === 'live-api'
+            ? 'Live API mode: results are served from the deployed Vercel backend model endpoint.'
+            : 'Mock mode: set VITE_API_BASE_URL to enable live backend predictions.'}
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           {statusChips.map((chip, idx) => (

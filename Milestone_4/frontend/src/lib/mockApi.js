@@ -1,7 +1,12 @@
 const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
-export async function predictVisa(payload) {
-  await wait(900);
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+
+export function getPredictionMode() {
+  return apiBaseUrl ? 'live-api' : 'mock';
+}
+
+function buildMockResponse(payload) {
 
   const month = Number(payload.application_month);
   const employees = Number(payload.no_of_employees);
@@ -118,4 +123,35 @@ export async function predictVisa(payload) {
     comparison,
     createdAt: new Date().toISOString(),
   };
+}
+
+async function predictViaApi(payload) {
+  const response = await fetch(`${apiBaseUrl}/api/predict`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error('Prediction API failed');
+  }
+
+  return response.json();
+}
+
+export async function predictVisa(payload) {
+  if (apiBaseUrl) {
+    try {
+      return await predictViaApi(payload);
+    } catch {
+      // Fall back to local mock mode if the deployed API is down or misconfigured.
+      await wait(500);
+      return buildMockResponse(payload);
+    }
+  }
+
+  await wait(900);
+  return buildMockResponse(payload);
 }
