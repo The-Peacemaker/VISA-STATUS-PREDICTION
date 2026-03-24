@@ -1,14 +1,13 @@
 {
-  "version": 2,
   "functions": {
-    "api/predict.py": {
+    "api/*.py": {
       "maxDuration": 30
     }
   },
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/predict",
-      "dest": "/api/predict.py"
+      "source": "/api/predict",
+      "destination": "/api/predict.py"
     }
   ]
 }
