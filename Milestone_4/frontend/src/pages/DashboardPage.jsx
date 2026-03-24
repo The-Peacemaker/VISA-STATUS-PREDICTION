@@ -198,7 +198,7 @@ export default function DashboardPage() {
               </Field>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <Field label="No. of Employees">
                 <input
                   type="number"
@@ -206,7 +206,8 @@ export default function DashboardPage() {
                   value={form.no_of_employees}
                   onChange={handleChange}
                   min={1}
-                  className="w-full rounded-xl border-[3px] border-borderStrong bg-obsidian/85 px-4 py-3 text-ivory outline-none transition focus:border-gold focus:shadow-glowGold"
+                  placeholder="e.g., 500"
+                  className="w-full rounded-xl border-[3px] border-borderStrong bg-obsidian/85 px-4 py-3 text-ivory placeholder-ivory/40 outline-none transition focus:border-gold focus:shadow-glowGold"
                   required
                 />
               </Field>
@@ -218,11 +219,12 @@ export default function DashboardPage() {
                   onChange={handleChange}
                   min={1800}
                   max={new Date().getFullYear()}
-                  className="w-full rounded-xl border-[3px] border-borderStrong bg-obsidian/85 px-4 py-3 text-ivory outline-none transition focus:border-gold focus:shadow-glowGold"
+                  placeholder="e.g., 2010"
+                  className="w-full rounded-xl border-[3px] border-borderStrong bg-obsidian/85 px-4 py-3 text-ivory placeholder-ivory/40 outline-none transition focus:border-gold focus:shadow-glowGold"
                   required
                 />
               </Field>
-              <Field label="Prevailing Wage">
+              <Field label="Prevailing Wage (USD)">
                 <input
                   type="number"
                   name="prevailing_wage"
@@ -230,9 +232,11 @@ export default function DashboardPage() {
                   onChange={handleChange}
                   min={0}
                   step="0.1"
-                  className="w-full rounded-xl border-[3px] border-borderStrong bg-obsidian/85 px-4 py-3 text-ivory outline-none transition focus:border-gold focus:shadow-glowGold"
+                  placeholder="e.g., 4200 for the selected unit"
+                  className="w-full rounded-xl border-[3px] border-borderStrong bg-obsidian/85 px-4 py-3 text-ivory placeholder-ivory/40 outline-none transition focus:border-gold focus:shadow-glowGold"
                   required
                 />
+                <p className="mt-1 text-xs text-ivory/60">Enter wage amount in USD for the selected unit (Hour/Week/Month/Year)</p>
               </Field>
             </div>
 
