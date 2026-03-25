@@ -13,6 +13,28 @@ A comprehensive machine learning system that predicts visa application processin
 **Frontend:** [https://visa-status-prediction.netlify.app/](https://visa-status-prediction.netlify.app/)  
 **Backend API:** [https://visa-status-prediction.vercel.app/](https://visa-status-prediction.vercel.app/)
 
+## ✅ Repository Submission Checklist (As Requested)
+
+This repository includes all required contents from the final submission email:
+
+1. **All 4 milestone tasks**
+  - [Milestone_1](Milestone_1)
+  - [Milestone_2](Milestone_2)
+  - [Milestone_3](Milestone_3)
+  - [Milestone_4](Milestone_4)
+
+2. **All 3 documentation files**
+  - Agile documentation: [Documents/Benedict_Agile_Documentation.xls](Documents/Benedict_Agile_Documentation.xls)
+  - Unit testing: [Documents/Unit_Test_Plan_v0.1.xlsx](Documents/Unit_Test_Plan_v0.1.xlsx)
+  - Defect tracker: [Documents/Defect_Tracker.xlsx](Documents/Defect_Tracker.xlsx)
+
+3. **Updated README with deployed links**
+  - Frontend deployed link: [https://visa-status-prediction.netlify.app/](https://visa-status-prediction.netlify.app/)
+  - Backend deployed link: [https://visa-status-prediction.vercel.app/](https://visa-status-prediction.vercel.app/)
+
+4. **MIT License**
+  - [LICENSE](LICENSE)
+
 ### Key Features
 - 🎯 **AI-Powered Predictions:** Estimate visa processing time based on application context
 - 📊 **Confidence Scoring:** Get reliability metrics on prediction accuracy
