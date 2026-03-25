@@ -13,7 +13,7 @@ A comprehensive machine learning system that predicts visa application processin
 **Frontend:** [https://visa-status-prediction.netlify.app/](https://visa-status-prediction.netlify.app/)  
 **Backend API:** [https://visa-status-prediction.vercel.app/](https://visa-status-prediction.vercel.app/)
 
-
+---
 **Documentation files**
   - Agile documentation: [Documents/Benedict_Agile_Documentation.xls](Documents/Benedict_Agile_Documentation.xls)
   - Unit testing: [Documents/Unit_Test_Plan_v0.1.xlsx](Documents/Unit_Test_Plan_v0.1.xlsx)
