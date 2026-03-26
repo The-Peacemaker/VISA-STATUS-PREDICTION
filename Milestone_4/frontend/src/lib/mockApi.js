@@ -103,7 +103,7 @@ function buildMockResponse(payload) {
   const microJitter = jitterSeed / 200;
 
   const confidenceRaw = 0.94 - spreadNorm * 0.24 - Math.min(complexity, 1) * 0.22 + microJitter;
-  const confidence = Number(Math.min(0.97, Math.max(0.52, confidenceRaw)).toFixed(2));
+  const confidence = Number(Math.min(0.97, Math.max(0.7, confidenceRaw)).toFixed(2));
 
   const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const seasonalLift = [2, 2, 1, 0, -1, 1, 2, 2, 1, 0, 1, 2];

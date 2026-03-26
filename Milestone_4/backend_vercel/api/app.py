@@ -123,7 +123,7 @@ def _predict(payload: dict) -> tuple[float, float, float]:
 
     # Use standardized feature distance as a lightweight out-of-distribution signal.
     z = np.abs(scaled_df.values.astype(float))
-    tail = np.maximum(z - 1.75, 0.0)
+    tail = np.maximum(z - 2.1, 0.0)
     ood_score = float(np.clip(np.mean(tail) / 2.5, 0.0, 1.0))
 
     return mean_pred, p10, p90, ood_score
@@ -137,10 +137,10 @@ def _build_response(payload: dict, mean_pred: float, p10: float, p90: float, ood
     relative_width = interval_width / max(mean_pred, 1.0)
 
     # Calibrated heuristic: tighter interval + in-distribution input => higher confidence.
-    confidence_raw = 1.02 - (1.40 * relative_width) - (0.45 * ood_score)
-    if relative_width < 0.12:
+    confidence_raw = 1.01 - (1.30 * relative_width) - (0.32 * ood_score)
+    if relative_width < 0.13:
         confidence_raw += 0.04
-    confidence = round(float(np.clip(confidence_raw, 0.5, 0.97)), 2)
+    confidence = round(float(np.clip(confidence_raw, 0.7, 0.97)), 2)
 
     month = int(payload["application_month"])
     month_labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
