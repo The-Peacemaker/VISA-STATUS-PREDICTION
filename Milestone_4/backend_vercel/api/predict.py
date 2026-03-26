@@ -120,15 +120,27 @@ def _predict(payload: dict) -> tuple[float, float, float]:
     mean_pred = round(max(mean_pred, 1.0), 2)
     p10 = round(max(min(p10, p90), 1.0), 2)
     p90 = round(max(max(p10, p90), 1.0), 2)
-    return mean_pred, p10, p90
+
+    # Use standardized feature distance as a lightweight out-of-distribution signal.
+    z = np.abs(scaled_df.values.astype(float))
+    tail = np.maximum(z - 1.75, 0.0)
+    ood_score = float(np.clip(np.mean(tail) / 2.5, 0.0, 1.0))
+
+    return mean_pred, p10, p90, ood_score
 
 
-def _build_response(payload: dict, mean_pred: float, p10: float, p90: float) -> dict:
+def _build_response(payload: dict, mean_pred: float, p10: float, p90: float, ood_score: float) -> dict:
     spread = max(3, int(round((p90 - p10) / 2)))
     predicted_days = int(round(mean_pred))
 
-    confidence = max(0.7, min(0.97, 1 - ((p90 - p10) / max(mean_pred, 1.0)) * 0.22))
-    confidence = round(confidence, 2)
+    interval_width = max(0.0, p90 - p10)
+    relative_width = interval_width / max(mean_pred, 1.0)
+
+    # Calibrated heuristic: tighter interval + in-distribution input => higher confidence.
+    confidence_raw = 1.02 - (1.40 * relative_width) - (0.45 * ood_score)
+    if relative_width < 0.12:
+        confidence_raw += 0.04
+    confidence = round(float(np.clip(confidence_raw, 0.5, 0.97)), 2)
 
     month = int(payload["application_month"])
     month_labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -176,8 +188,8 @@ def predict_route():
 
     payload = request.get_json(silent=True) or {}
     try:
-        mean_pred, p10, p90 = _predict(payload)
-        return _corsify(jsonify(_build_response(payload, mean_pred, p10, p90)))
+        mean_pred, p10, p90, ood_score = _predict(payload)
+        return _corsify(jsonify(_build_response(payload, mean_pred, p10, p90, ood_score)))
     except ValueError as exc:
         error_response = _corsify(jsonify({"error": str(exc)}))
         return error_response, 400

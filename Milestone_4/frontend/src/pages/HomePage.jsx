@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import AnimatedButton from '../components/AnimatedButton';
 import SectionReveal from '../components/SectionReveal';
+import { INPUT_FIELD_KEYS, VISUALIZATION_PANELS } from '../lib/dashboardMeta';
+import { getHistory } from '../lib/storage';
 
 const steps = [
   {
@@ -24,12 +26,6 @@ const features = [
   'AI Confidence Score',
   'Trend Analysis',
   'Prediction History Vault',
-];
-
-const statsTarget = [
-  { label: 'Input Dimensions', value: 11 },
-  { label: 'Visualization Panels', value: 3 },
-  { label: 'History Tracking', value: 1 },
 ];
 
 const tickerItems = [
@@ -66,6 +62,33 @@ function useAnimatedCounter(targets) {
 }
 
 export default function HomePage() {
+  const [historyCount, setHistoryCount] = useState(() => getHistory().length);
+
+  useEffect(() => {
+    const refreshHistoryCount = () => {
+      setHistoryCount(getHistory().length);
+    };
+
+    window.addEventListener('focus', refreshHistoryCount);
+    window.addEventListener('storage', refreshHistoryCount);
+    window.addEventListener('visa-history-updated', refreshHistoryCount);
+
+    return () => {
+      window.removeEventListener('focus', refreshHistoryCount);
+      window.removeEventListener('storage', refreshHistoryCount);
+      window.removeEventListener('visa-history-updated', refreshHistoryCount);
+    };
+  }, []);
+
+  const statsTarget = useMemo(
+    () => [
+      { label: 'Input Dimensions', value: INPUT_FIELD_KEYS.length },
+      { label: 'Visualization Panels', value: VISUALIZATION_PANELS.length },
+      { label: 'History Tracking', value: historyCount },
+    ],
+    [historyCount]
+  );
+
   const counters = useAnimatedCounter(statsTarget);
 
   const particles = useMemo(

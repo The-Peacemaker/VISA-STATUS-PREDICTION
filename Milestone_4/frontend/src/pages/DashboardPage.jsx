@@ -19,6 +19,7 @@ import SectionReveal from '../components/SectionReveal';
 import SkeletonCard from '../components/SkeletonCard';
 import { useToast } from '../components/ToastProvider';
 import { getPredictionMode, predictVisa } from '../lib/mockApi';
+import { generateSmartRandomInput } from '../lib/smartScenario';
 import { savePrediction } from '../lib/storage';
 
 const initialForm = {
@@ -40,6 +41,32 @@ const educationLevels = ['High School', "Bachelor's", "Master's", 'Doctorate'];
 const binaryChoices = ['Y', 'N'];
 const employmentRegions = ['Northeast', 'Midwest', 'South', 'West', 'Island'];
 const wageUnits = ['Hour', 'Week', 'Month', 'Year'];
+const monthOptions = Array.from({ length: 12 }, (_, idx) => String(idx + 1));
+
+const fieldAnimationOrder = [
+  'continent',
+  'education_of_employee',
+  'region_of_employment',
+  'application_month',
+  'has_job_experience',
+  'requires_job_training',
+  'unit_of_wage',
+  'full_time_position',
+  'no_of_employees',
+  'yr_of_estab',
+  'prevailing_wage',
+];
+
+const optionMap = {
+  continent: continents,
+  education_of_employee: educationLevels,
+  region_of_employment: employmentRegions,
+  application_month: monthOptions,
+  has_job_experience: binaryChoices,
+  requires_job_training: binaryChoices,
+  unit_of_wage: wageUnits,
+  full_time_position: binaryChoices,
+};
 
 const statusChips = ['Prediction Workspace', 'Confidence Scoring', 'Trend Analytics'];
 const predictionMode = getPredictionMode();
@@ -59,7 +86,13 @@ export default function DashboardPage() {
   const [form, setForm] = useState(initialForm);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [shuffleState, setShuffleState] = useState('idle');
+  const [activeField, setActiveField] = useState('');
+  const [aiScenarioMeta, setAiScenarioMeta] = useState(null);
   const { pushToast } = useToast();
+
+  const isShuffleRunning = shuffleState !== 'idle';
+  const isInputLocked = isLoading || isShuffleRunning;
 
   const confidencePercent = useMemo(() => {
     if (!result) {
@@ -77,22 +110,24 @@ export default function DashboardPage() {
   );
 
   const handleChange = (event) => {
+    if (isInputLocked) {
+      return;
+    }
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const runPrediction = async (sourceForm) => {
     setIsLoading(true);
     setResult(null);
 
     try {
       const payload = {
-        ...form,
-        no_of_employees: Number(form.no_of_employees),
-        yr_of_estab: Number(form.yr_of_estab),
-        prevailing_wage: Number(form.prevailing_wage),
-        application_month: Number(form.application_month),
+        ...sourceForm,
+        no_of_employees: Number(sourceForm.no_of_employees),
+        yr_of_estab: Number(sourceForm.yr_of_estab),
+        prevailing_wage: Number(sourceForm.prevailing_wage),
+        application_month: Number(sourceForm.application_month),
       };
 
       const response = await predictVisa(payload);
@@ -106,10 +141,80 @@ export default function DashboardPage() {
     }
   };
 
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (isInputLocked) {
+      return;
+    }
+
+    await runPrediction(form);
+  };
+
+  const animateFieldValue = async (name, targetValue) => {
+    const options = optionMap[name];
+
+    if (options) {
+      for (let idx = 0; idx < 3; idx += 1) {
+        const flickerOption = options[(idx + Math.floor(Math.random() * options.length)) % options.length];
+        setForm((current) => ({ ...current, [name]: flickerOption }));
+        await wait(65);
+      }
+      setForm((current) => ({ ...current, [name]: targetValue }));
+      await wait(90);
+      return;
+    }
+
+    const numericTarget = Number(targetValue);
+    const currentNumeric = Number(form[name]) || numericTarget;
+    const direction = numericTarget >= currentNumeric ? 1 : -1;
+
+    for (let idx = 0; idx < 4; idx += 1) {
+      const delta = Math.max(1, Math.round(Math.abs(numericTarget - currentNumeric) / (5 - idx)));
+      const flicker = numericTarget - direction * delta + Math.round((Math.random() - 0.5) * delta);
+      setForm((current) => ({ ...current, [name]: Math.max(0, flicker) }));
+      await wait(50);
+    }
+
+    setForm((current) => ({ ...current, [name]: targetValue }));
+    await wait(100);
+  };
+
+  const handleShuffle = async () => {
+    if (isInputLocked) {
+      return;
+    }
+
+    const generated = generateSmartRandomInput();
+    setResult(null);
+    setAiScenarioMeta(null);
+
+    setShuffleState('activation');
+    await wait(220);
+
+    setShuffleState('chaos');
+    await wait(420);
+
+    setShuffleState('generating');
+    for (const name of fieldAnimationOrder) {
+      setActiveField(name);
+      await animateFieldValue(name, generated.form[name]);
+      await wait(90);
+    }
+
+    setActiveField('');
+    setShuffleState('lockin');
+    setAiScenarioMeta(generated.meta);
+    await wait(360);
+
+    setShuffleState('idle');
+    pushToast('Scenario generated. Running prediction...', 'success');
+    await runPrediction(generated.form);
+  };
+
   return (
     <div className="mx-auto w-full max-w-7xl">
       <SectionReveal className="mb-6">
-        <h1 className="section-title text-4xl text-ivory md:text-5xl">Prediction Studio</h1>
+        <h1 className="section-title text-3xl text-ivory sm:text-4xl md:text-5xl">Prediction Studio</h1>
         <p className="mt-2 max-w-3xl text-ivory/75">
           Submit application context and review estimated processing-time output with confidence and chart-based visualization.
         </p>
@@ -133,73 +238,102 @@ export default function DashboardPage() {
         </div>
       </SectionReveal>
 
-      <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+      <div className={`dashboard-shell grid gap-6 lg:grid-cols-[0.95fr_1.05fr] ${isShuffleRunning ? 'shuffle-active' : ''} ${shuffleState === 'chaos' ? 'shuffle-chaos' : ''}`}>
         <SectionReveal className="neo-brutal-card p-5 md:p-6">
           <h2 className="section-title text-2xl text-ivory">Application Inputs</h2>
-          <form className="mt-5 grid gap-4" onSubmit={handleSubmit}>
-            <Field label="Continent">
-              <Select name="continent" value={form.continent} onChange={handleChange} options={continents} />
+          {aiScenarioMeta ? (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-3 inline-flex max-w-full flex-wrap items-center gap-2 rounded-full border-2 border-gold/80 bg-obsidian/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold"
+              title="AI-generated scenarios are randomized but constrained to realistic combinations."
+            >
+              AI Generated Scenario
+              <span className="truncate text-ivory/70 normal-case tracking-normal text-xs">
+                {aiScenarioMeta.country} · {aiScenarioMeta.visaType} · {aiScenarioMeta.processingOffice}
+              </span>
+            </motion.div>
+          ) : null}
+
+          <form
+            className={`dashboard-form mt-5 grid gap-4 ${shuffleState === 'chaos' ? 'shuffle-chaos' : ''} ${shuffleState === 'lockin' ? 'shuffle-lockin' : ''}`}
+            onSubmit={handleSubmit}
+          >
+            <Field label="Continent" isActive={activeField === 'continent'} isAnimating={isShuffleRunning}>
+              <Select name="continent" value={form.continent} onChange={handleChange} options={continents} disabled={isInputLocked} />
             </Field>
-            <Field label="Education of Employee">
+            <Field label="Education of Employee" isActive={activeField === 'education_of_employee'} isAnimating={isShuffleRunning}>
               <Select
                 name="education_of_employee"
                 value={form.education_of_employee}
                 onChange={handleChange}
                 options={educationLevels}
+                disabled={isInputLocked}
               />
             </Field>
-            <Field label="Region of Employment">
+            <Field label="Region of Employment" isActive={activeField === 'region_of_employment'} isAnimating={isShuffleRunning}>
               <Select
                 name="region_of_employment"
                 value={form.region_of_employment}
                 onChange={handleChange}
                 options={employmentRegions}
+                disabled={isInputLocked}
               />
             </Field>
-            <Field label="Application Month">
+            <Field label="Application Month" isActive={activeField === 'application_month'} isAnimating={isShuffleRunning}>
               <Select
                 name="application_month"
                 value={form.application_month}
                 onChange={handleChange}
-                options={Array.from({ length: 12 }, (_, idx) => String(idx + 1))}
+                options={monthOptions}
+                disabled={isInputLocked}
               />
             </Field>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Has Job Experience">
+              <Field label="Has Job Experience" isActive={activeField === 'has_job_experience'} isAnimating={isShuffleRunning}>
                 <Select
                   name="has_job_experience"
                   value={form.has_job_experience}
                   onChange={handleChange}
                   options={binaryChoices}
+                  disabled={isInputLocked}
                 />
               </Field>
-              <Field label="Requires Job Training">
+              <Field label="Requires Job Training" isActive={activeField === 'requires_job_training'} isAnimating={isShuffleRunning}>
                 <Select
                   name="requires_job_training"
                   value={form.requires_job_training}
                   onChange={handleChange}
                   options={binaryChoices}
+                  disabled={isInputLocked}
                 />
               </Field>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Unit of Wage">
-                <Select name="unit_of_wage" value={form.unit_of_wage} onChange={handleChange} options={wageUnits} />
+              <Field label="Unit of Wage" isActive={activeField === 'unit_of_wage'} isAnimating={isShuffleRunning}>
+                <Select
+                  name="unit_of_wage"
+                  value={form.unit_of_wage}
+                  onChange={handleChange}
+                  options={wageUnits}
+                  disabled={isInputLocked}
+                />
               </Field>
-              <Field label="Full-Time Position">
+              <Field label="Full-Time Position" isActive={activeField === 'full_time_position'} isAnimating={isShuffleRunning}>
                 <Select
                   name="full_time_position"
                   value={form.full_time_position}
                   onChange={handleChange}
                   options={binaryChoices}
+                  disabled={isInputLocked}
                 />
               </Field>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              <Field label="No. of Employees">
+              <Field label="No. of Employees" isActive={activeField === 'no_of_employees'} isAnimating={isShuffleRunning}>
                 <input
                   type="number"
                   name="no_of_employees"
@@ -208,10 +342,11 @@ export default function DashboardPage() {
                   min={1}
                   placeholder="e.g., 500"
                   className="w-full rounded-xl border-[3px] border-borderStrong bg-obsidian/85 px-4 py-3 text-ivory placeholder-ivory/40 outline-none transition focus:border-gold focus:shadow-glowGold"
+                  disabled={isInputLocked}
                   required
                 />
               </Field>
-              <Field label="Year of Establishment">
+              <Field label="Year of Establishment" isActive={activeField === 'yr_of_estab'} isAnimating={isShuffleRunning}>
                 <input
                   type="number"
                   name="yr_of_estab"
@@ -221,10 +356,11 @@ export default function DashboardPage() {
                   max={new Date().getFullYear()}
                   placeholder="e.g., 2010"
                   className="w-full rounded-xl border-[3px] border-borderStrong bg-obsidian/85 px-4 py-3 text-ivory placeholder-ivory/40 outline-none transition focus:border-gold focus:shadow-glowGold"
+                  disabled={isInputLocked}
                   required
                 />
               </Field>
-              <Field label="Prevailing Wage (USD)">
+              <Field label="Prevailing Wage (USD)" isActive={activeField === 'prevailing_wage'} isAnimating={isShuffleRunning}>
                 <input
                   type="number"
                   name="prevailing_wage"
@@ -234,18 +370,43 @@ export default function DashboardPage() {
                   step="0.1"
                   placeholder="e.g., 4200"
                   className="w-full rounded-xl border-[3px] border-borderStrong bg-obsidian/85 px-4 py-3 text-ivory placeholder-ivory/40 outline-none transition focus:border-gold focus:shadow-glowGold"
+                  disabled={isInputLocked}
                   required
                 />
               </Field>
             </div>
 
-            <AnimatedButton
-              type="submit"
-              disabled={isLoading}
-              className={`mt-3 w-full ${isLoading ? 'cursor-not-allowed opacity-80' : ''}`}
-            >
-              {isLoading ? 'Calculating...' : 'Generate Estimate'}
-            </AnimatedButton>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <motion.button
+                type="button"
+                onClick={handleShuffle}
+                disabled={isInputLocked}
+                whileHover={{ rotate: -1.5, scale: 1.015 }}
+                whileTap={{ scale: 0.98, y: 2 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 18 }}
+                className={`shuffle-button group relative flex min-h-12 items-center justify-center gap-2 rounded-xl border-[3px] border-gold/90 px-4 py-3 text-sm font-bold uppercase tracking-[0.14em] text-ivory ${isInputLocked ? 'cursor-not-allowed opacity-65' : ''}`}
+                aria-label="AI Shuffle"
+              >
+                <span className="shuffle-ripple" />
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
+                  <path d="M4 7h3c2.6 0 4.3 1.1 6.1 3.7l.4.6C15.3 14 17 15 19.6 15H22" />
+                  <path d="M18 5l4 2-4 2" />
+                  <path d="M4 17h3c2.4 0 4-.9 5.4-2.8" />
+                  <path d="M18 13l4 2-4 2" />
+                </svg>
+                <span className="relative z-10">
+                  {isShuffleRunning ? 'Generating Scenario...' : 'AI Shuffle'}
+                </span>
+              </motion.button>
+
+              <AnimatedButton
+                type="submit"
+                disabled={isInputLocked}
+                className={`w-full ${isInputLocked ? 'cursor-not-allowed opacity-80' : ''}`}
+              >
+                {isLoading ? 'Calculating...' : 'Generate Estimate'}
+              </AnimatedButton>
+            </div>
           </form>
         </SectionReveal>
 
@@ -267,7 +428,7 @@ export default function DashboardPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="neo-brutal-card animate-pulseGlow p-5">
                   <p className="text-xs uppercase tracking-[0.2em] text-gold">Estimated Processing Time</p>
-                  <p className="section-title mt-2 text-4xl text-ivory">{result.range}</p>
+                  <p className="section-title mt-2 text-3xl text-ivory sm:text-4xl">{result.range}</p>
                   <p className="mt-2 text-sm text-ivory/70">
                     Point estimate: <CountUpValue value={result.predictedDays} /> days
                   </p>
@@ -283,7 +444,7 @@ export default function DashboardPage() {
                       className="h-full bg-gradient-to-r from-gold to-glow"
                     />
                   </div>
-                  <p className="mt-3 section-title text-4xl text-glow">{confidencePercent}%</p>
+                  <p className="mt-3 section-title text-3xl text-glow sm:text-4xl">{confidencePercent}%</p>
                 </div>
               </div>
 
@@ -371,21 +532,22 @@ export default function DashboardPage() {
   );
 }
 
-function Field({ label, children }) {
+function Field({ label, children, isActive = false, isAnimating = false }) {
   return (
-    <label className="grid gap-2">
+    <label className={`grid gap-2 ${isAnimating ? 'field-animating' : ''}`}>
       <span className="text-xs uppercase tracking-[0.2em] text-gold">{label}</span>
-      {children}
+      <div className={`field-shell ${isActive ? 'field-active' : ''}`}>{children}</div>
     </label>
   );
 }
 
-function Select({ name, value, onChange, options }) {
+function Select({ name, value, onChange, options, disabled = false }) {
   return (
     <select
       name={name}
       value={value}
       onChange={onChange}
+      disabled={disabled}
       className="w-full cursor-pointer rounded-xl border-[3px] border-borderStrong bg-obsidian/85 px-4 py-3 text-ivory outline-none transition focus:border-gold focus:shadow-glowGold"
       required
     >
@@ -396,6 +558,12 @@ function Select({ name, value, onChange, options }) {
       ))}
     </select>
   );
+}
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
 }
 
 function CountUpValue({ value }) {

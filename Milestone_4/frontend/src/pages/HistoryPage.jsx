@@ -34,7 +34,7 @@ export default function HistoryPage() {
   return (
     <div className="mx-auto w-full max-w-7xl">
       <SectionReveal className="mb-6">
-        <h1 className="section-title text-4xl text-ivory md:text-5xl">Prediction History</h1>
+        <h1 className="section-title text-3xl text-ivory sm:text-4xl md:text-5xl">Prediction History</h1>
         <p className="mt-2 text-ivory/75">Search, filter, and inspect your previous AI estimates in a brutalist analytics table.</p>
       </SectionReveal>
 
@@ -66,7 +66,43 @@ export default function HistoryPage() {
           </label>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border-[3px] border-borderStrong">
+        <div className="grid gap-3 md:hidden">
+          {filtered.map((entry) => {
+            const expanded = expandedId === entry.id;
+            return (
+              <article key={entry.id} className="rounded-xl border-[3px] border-borderStrong bg-obsidian/70 p-4">
+                <div className="grid gap-1">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-gold">{new Date(entry.createdAt).toLocaleDateString()}</p>
+                  <p className="text-sm font-semibold text-ivory">{entry.payload.continent} · {entry.payload.education_of_employee}</p>
+                  <p className="text-sm text-ivory/80">{entry.range}</p>
+                  <p className="text-sm text-glow">{Math.round(entry.confidence * 100)}% confidence</p>
+                </div>
+
+                <button
+                  onClick={() => setExpandedId(expanded ? null : entry.id)}
+                  className="mt-3 w-full rounded-lg border-2 border-borderStrong bg-obsidian px-3 py-2 text-xs font-bold uppercase tracking-[0.15em] transition hover:border-gold"
+                >
+                  {expanded ? 'Hide Details' : 'View Details'}
+                </button>
+
+                {expanded ? (
+                  <div className="mt-3 grid gap-2">
+                    <Detail label="Region" value={entry.payload.region_of_employment} />
+                    <Detail label="Application Month" value={entry.payload.application_month} />
+                    <Detail label="Job Experience" value={entry.payload.has_job_experience} />
+                    <Detail label="Requires Training" value={entry.payload.requires_job_training} />
+                    <Detail label="Employees" value={entry.payload.no_of_employees} />
+                    <Detail label="Year Established" value={entry.payload.yr_of_estab} />
+                    <Detail label="Prevailing Wage" value={`${entry.payload.prevailing_wage} (${entry.payload.unit_of_wage})`} />
+                    <Detail label="Full Time" value={entry.payload.full_time_position} />
+                  </div>
+                ) : null}
+              </article>
+            );
+          })}
+        </div>
+
+        <div className="hidden overflow-x-auto rounded-xl border-[3px] border-borderStrong md:block">
           <table className="min-w-full border-collapse text-sm">
             <thead className="bg-slateDeep/95 text-left text-xs uppercase tracking-[0.17em] text-gold">
               <tr>

@@ -24,5 +24,10 @@ export function savePrediction(entry) {
   const current = getHistory();
   const updated = [entry, ...current];
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('visa-history-updated', { detail: { count: updated.length } }));
+  }
+
   return updated;
 }

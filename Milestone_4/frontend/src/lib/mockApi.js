@@ -87,8 +87,23 @@ function buildMockResponse(payload) {
   predictedDays = Math.max(7, Math.round(predictedDays));
 
   const spread = 6 + (payload.requires_job_training === 'Y' ? 2 : 0) + (payload.has_job_experience === 'N' ? 1 : 0);
-  const confidenceRaw = 0.9 - spread * 0.015;
-  const confidence = Number(Math.min(0.96, Math.max(0.72, confidenceRaw)).toFixed(2));
+
+  const spreadNorm = Math.min(1, Math.max(0, (spread - 4) / 10));
+  let complexity = 0;
+  if (payload.has_job_experience === 'N') complexity += 0.18;
+  if (payload.requires_job_training === 'Y') complexity += 0.16;
+  if (payload.full_time_position === 'N') complexity += 0.1;
+  if (employees < 200) complexity += 0.12;
+  if (establishedYear >= 2018) complexity += 0.1;
+  if (wage < 1000 || wage > 60000) complexity += 0.08;
+  if (month === 12 || month <= 2 || (month >= 6 && month <= 8)) complexity += 0.06;
+
+  // Deterministic micro-jitter keeps repeated use feeling less flat without true randomness.
+  const jitterSeed = ((predictedDays * 7 + month * 3 + (employees % 13)) % 9) - 4;
+  const microJitter = jitterSeed / 200;
+
+  const confidenceRaw = 0.94 - spreadNorm * 0.24 - Math.min(complexity, 1) * 0.22 + microJitter;
+  const confidence = Number(Math.min(0.97, Math.max(0.52, confidenceRaw)).toFixed(2));
 
   const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const seasonalLift = [2, 2, 1, 0, -1, 1, 2, 2, 1, 0, 1, 2];
