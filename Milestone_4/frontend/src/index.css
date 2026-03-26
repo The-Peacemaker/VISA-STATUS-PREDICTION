@@ -4,6 +4,7 @@
 
 :root {
   color-scheme: dark;
+  --app-nav-height: 88px;
 }
 
 html,
@@ -18,6 +19,7 @@ html {
 
 body {
   margin: 0;
+  padding-top: env(safe-area-inset-top);
   font-family: 'Manrope', sans-serif;
   background: #0b0b0b;
   color: #f5f5dc;
@@ -192,6 +194,38 @@ canvas {
   opacity: 0;
 }
 
+.mobile-shuffle-orbit {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: rgba(194, 168, 120, 0.85);
+  box-shadow: 0 0 10px rgba(194, 168, 120, 0.65);
+  opacity: 0;
+}
+
+.mobile-shuffle-orbit-a {
+  left: 16%;
+  top: 20%;
+}
+
+.mobile-shuffle-orbit-b {
+  right: 14%;
+  bottom: 18%;
+}
+
+.mobile-shuffle-burst {
+  animation: mobileShuffleBurst 0.52s ease;
+}
+
+.mobile-shuffle-burst .mobile-shuffle-orbit-a {
+  animation: orbitPulseA 0.52s ease;
+}
+
+.mobile-shuffle-burst .mobile-shuffle-orbit-b {
+  animation: orbitPulseB 0.52s ease;
+}
+
 .shuffle-button:active .shuffle-ripple {
   animation: rippleOut 0.45s ease-out;
 }
@@ -285,6 +319,51 @@ canvas {
   }
 }
 
+@keyframes mobileShuffleBurst {
+  0% {
+    box-shadow: 6px 6px 0 #000, 0 0 0 rgba(194, 168, 120, 0);
+    transform: scale(1);
+  }
+  40% {
+    box-shadow: 6px 6px 0 #000, 0 0 30px rgba(194, 168, 120, 0.45);
+    transform: scale(1.015);
+  }
+  100% {
+    box-shadow: 6px 6px 0 #000, 0 0 0 rgba(194, 168, 120, 0);
+    transform: scale(1);
+  }
+}
+
+@keyframes orbitPulseA {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.6);
+  }
+  35% {
+    opacity: 1;
+    transform: translate(-10px, -8px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-18px, -16px) scale(0.7);
+  }
+}
+
+@keyframes orbitPulseB {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.6);
+  }
+  35% {
+    opacity: 1;
+    transform: translate(10px, 8px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(18px, 16px) scale(0.7);
+  }
+}
+
 .custom-cursor {
   width: 18px;
   height: 18px;
@@ -341,6 +420,31 @@ canvas {
   .shuffle-button {
     letter-spacing: 0.1em;
     font-size: 0.72rem;
+  }
+
+  .mobile-shuffle-button {
+    min-height: 54px;
+    border-width: 3px;
+    box-shadow: 4px 4px 0 #000;
+    background:
+      linear-gradient(150deg, rgba(24, 24, 24, 0.98), rgba(8, 8, 8, 0.98)),
+      repeating-linear-gradient(115deg, rgba(194, 168, 120, 0.16) 0, rgba(194, 168, 120, 0.16) 2px, transparent 2px, transparent 5px);
+  }
+
+  .mobile-shuffle-button:not(:disabled) {
+    animation: mobileShuffleIdle 1.9s ease-in-out infinite;
+  }
+}
+
+@keyframes mobileShuffleIdle {
+  0%,
+  100% {
+    transform: translateY(0);
+    box-shadow: 4px 4px 0 #000, 0 0 0 rgba(194, 168, 120, 0);
+  }
+  50% {
+    transform: translateY(-1px);
+    box-shadow: 4px 4px 0 #000, 0 0 16px rgba(194, 168, 120, 0.28);
   }
 }
 

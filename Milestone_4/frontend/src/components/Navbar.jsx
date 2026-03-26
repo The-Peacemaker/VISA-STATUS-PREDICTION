@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
@@ -12,11 +12,38 @@ export default function Navbar() {
   const location = useLocation();
   const onLanding = location.pathname === '/';
   const [menuOpen, setMenuOpen] = useState(false);
+  const headerRef = useRef(null);
 
   const closeMenu = () => setMenuOpen(false);
 
+  useEffect(() => {
+    const syncNavHeight = () => {
+      if (!headerRef.current) {
+        return;
+      }
+      const height = headerRef.current.getBoundingClientRect().height;
+      document.documentElement.style.setProperty('--app-nav-height', `${Math.ceil(height)}px`);
+    };
+
+    syncNavHeight();
+
+    let observer;
+    if (typeof ResizeObserver !== 'undefined' && headerRef.current) {
+      observer = new ResizeObserver(syncNavHeight);
+      observer.observe(headerRef.current);
+    }
+
+    window.addEventListener('resize', syncNavHeight);
+    return () => {
+      window.removeEventListener('resize', syncNavHeight);
+      if (observer) {
+        observer.disconnect();
+      }
+    };
+  }, [menuOpen, location.pathname]);
+
   return (
-    <header className="fixed inset-x-0 top-0 z-40 px-4 pt-4 md:px-8">
+    <header ref={headerRef} className="fixed inset-x-0 top-0 z-40 px-4 pt-4 md:px-8">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between rounded-2xl border-[3px] border-borderStrong bg-slateDeep/75 px-3 py-3 shadow-panel backdrop-blur-md md:px-6">
         <Link to="/" className="group inline-flex min-w-0 items-center gap-3" onClick={closeMenu}>
           <div className="h-10 w-10 rounded-lg border-[3px] border-gold/70 bg-obsidian grid place-items-center font-display text-lg text-gold transition group-hover:animate-pulseGlow">

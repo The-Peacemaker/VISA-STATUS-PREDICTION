@@ -48,7 +48,10 @@ export default function App() {
           transition={{ duration: 0.65, ease: 'easeOut' }}
           style={{ transformOrigin: 'left center' }}
         />
-        <main className="relative z-10 px-3 pb-16 pt-22 sm:px-4 sm:pt-24 md:px-8 md:pb-20 lg:px-12">
+        <main
+          className="relative z-10 px-3 pb-16 sm:px-4 md:px-8 md:pb-20 lg:px-12"
+          style={{ paddingTop: 'calc(var(--app-nav-height, 88px) + 0.9rem)' }}
+        >
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}

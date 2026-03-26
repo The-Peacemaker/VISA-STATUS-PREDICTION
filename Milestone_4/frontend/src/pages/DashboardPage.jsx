@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Bar,
@@ -89,10 +89,29 @@ export default function DashboardPage() {
   const [shuffleState, setShuffleState] = useState('idle');
   const [activeField, setActiveField] = useState('');
   const [aiScenarioMeta, setAiScenarioMeta] = useState(null);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [mobileBurstActive, setMobileBurstActive] = useState(false);
+  const fieldRefs = useRef({});
+  const resultAnchorRef = useRef(null);
   const { pushToast } = useToast();
 
   const isShuffleRunning = shuffleState !== 'idle';
   const isInputLocked = isLoading || isShuffleRunning;
+  const speedFactor = isMobileViewport ? 0.78 : 1;
+
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 768px), (pointer: coarse)');
+    const syncMobile = () => setIsMobileViewport(query.matches);
+
+    syncMobile();
+    query.addEventListener('change', syncMobile);
+    window.addEventListener('resize', syncMobile);
+
+    return () => {
+      query.removeEventListener('change', syncMobile);
+      window.removeEventListener('resize', syncMobile);
+    };
+  }, []);
 
   const confidencePercent = useMemo(() => {
     if (!result) {
@@ -115,6 +134,24 @@ export default function DashboardPage() {
     }
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
+  };
+
+  const registerFieldRef = (name) => (node) => {
+    if (node) {
+      fieldRefs.current[name] = node;
+    }
+  };
+
+  const scrollFieldIntoView = (name) => {
+    if (!isMobileViewport) {
+      return;
+    }
+    const target = fieldRefs.current[name];
+    if (!target) {
+      return;
+    }
+
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
   const runPrediction = async (sourceForm) => {
@@ -157,10 +194,10 @@ export default function DashboardPage() {
       for (let idx = 0; idx < 3; idx += 1) {
         const flickerOption = options[(idx + Math.floor(Math.random() * options.length)) % options.length];
         setForm((current) => ({ ...current, [name]: flickerOption }));
-        await wait(65);
+        await wait(Math.round(65 * speedFactor));
       }
       setForm((current) => ({ ...current, [name]: targetValue }));
-      await wait(90);
+      await wait(Math.round(90 * speedFactor));
       return;
     }
 
@@ -172,11 +209,11 @@ export default function DashboardPage() {
       const delta = Math.max(1, Math.round(Math.abs(numericTarget - currentNumeric) / (5 - idx)));
       const flicker = numericTarget - direction * delta + Math.round((Math.random() - 0.5) * delta);
       setForm((current) => ({ ...current, [name]: Math.max(0, flicker) }));
-      await wait(50);
+      await wait(Math.round(50 * speedFactor));
     }
 
     setForm((current) => ({ ...current, [name]: targetValue }));
-    await wait(100);
+    await wait(Math.round(100 * speedFactor));
   };
 
   const handleShuffle = async () => {
@@ -188,26 +225,48 @@ export default function DashboardPage() {
     setResult(null);
     setAiScenarioMeta(null);
 
+    if (isMobileViewport && navigator.vibrate) {
+      navigator.vibrate([18, 12, 34]);
+    }
+
+    if (isMobileViewport) {
+      setMobileBurstActive(true);
+      window.setTimeout(() => setMobileBurstActive(false), 520);
+    }
+
     setShuffleState('activation');
-    await wait(220);
+    await wait(Math.round(220 * speedFactor));
 
     setShuffleState('chaos');
-    await wait(420);
+    await wait(Math.round((isMobileViewport ? 340 : 420) * speedFactor));
 
     setShuffleState('generating');
+    if (isMobileViewport) {
+      scrollFieldIntoView(fieldAnimationOrder[0]);
+      await wait(Math.round(180 * speedFactor));
+    }
+
     for (const name of fieldAnimationOrder) {
       setActiveField(name);
+      scrollFieldIntoView(name);
+      await wait(Math.round(90 * speedFactor));
       await animateFieldValue(name, generated.form[name]);
-      await wait(90);
+      await wait(Math.round(90 * speedFactor));
     }
 
     setActiveField('');
     setShuffleState('lockin');
     setAiScenarioMeta(generated.meta);
-    await wait(360);
+    await wait(Math.round(360 * speedFactor));
 
     setShuffleState('idle');
     pushToast('Scenario generated. Running prediction...', 'success');
+
+    if (isMobileViewport && resultAnchorRef.current) {
+      resultAnchorRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      await wait(Math.round(220 * speedFactor));
+    }
+
     await runPrediction(generated.form);
   };
 
@@ -259,10 +318,22 @@ export default function DashboardPage() {
             className={`dashboard-form mt-5 grid gap-4 ${shuffleState === 'chaos' ? 'shuffle-chaos' : ''} ${shuffleState === 'lockin' ? 'shuffle-lockin' : ''}`}
             onSubmit={handleSubmit}
           >
-            <Field label="Continent" isActive={activeField === 'continent'} isAnimating={isShuffleRunning}>
+            <Field
+              label="Continent"
+              fieldName="continent"
+              registerFieldRef={registerFieldRef}
+              isActive={activeField === 'continent'}
+              isAnimating={isShuffleRunning}
+            >
               <Select name="continent" value={form.continent} onChange={handleChange} options={continents} disabled={isInputLocked} />
             </Field>
-            <Field label="Education of Employee" isActive={activeField === 'education_of_employee'} isAnimating={isShuffleRunning}>
+            <Field
+              label="Education of Employee"
+              fieldName="education_of_employee"
+              registerFieldRef={registerFieldRef}
+              isActive={activeField === 'education_of_employee'}
+              isAnimating={isShuffleRunning}
+            >
               <Select
                 name="education_of_employee"
                 value={form.education_of_employee}
@@ -271,7 +342,13 @@ export default function DashboardPage() {
                 disabled={isInputLocked}
               />
             </Field>
-            <Field label="Region of Employment" isActive={activeField === 'region_of_employment'} isAnimating={isShuffleRunning}>
+            <Field
+              label="Region of Employment"
+              fieldName="region_of_employment"
+              registerFieldRef={registerFieldRef}
+              isActive={activeField === 'region_of_employment'}
+              isAnimating={isShuffleRunning}
+            >
               <Select
                 name="region_of_employment"
                 value={form.region_of_employment}
@@ -280,7 +357,13 @@ export default function DashboardPage() {
                 disabled={isInputLocked}
               />
             </Field>
-            <Field label="Application Month" isActive={activeField === 'application_month'} isAnimating={isShuffleRunning}>
+            <Field
+              label="Application Month"
+              fieldName="application_month"
+              registerFieldRef={registerFieldRef}
+              isActive={activeField === 'application_month'}
+              isAnimating={isShuffleRunning}
+            >
               <Select
                 name="application_month"
                 value={form.application_month}
@@ -291,7 +374,13 @@ export default function DashboardPage() {
             </Field>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Has Job Experience" isActive={activeField === 'has_job_experience'} isAnimating={isShuffleRunning}>
+              <Field
+                label="Has Job Experience"
+                fieldName="has_job_experience"
+                registerFieldRef={registerFieldRef}
+                isActive={activeField === 'has_job_experience'}
+                isAnimating={isShuffleRunning}
+              >
                 <Select
                   name="has_job_experience"
                   value={form.has_job_experience}
@@ -300,7 +389,13 @@ export default function DashboardPage() {
                   disabled={isInputLocked}
                 />
               </Field>
-              <Field label="Requires Job Training" isActive={activeField === 'requires_job_training'} isAnimating={isShuffleRunning}>
+              <Field
+                label="Requires Job Training"
+                fieldName="requires_job_training"
+                registerFieldRef={registerFieldRef}
+                isActive={activeField === 'requires_job_training'}
+                isAnimating={isShuffleRunning}
+              >
                 <Select
                   name="requires_job_training"
                   value={form.requires_job_training}
@@ -312,7 +407,13 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Unit of Wage" isActive={activeField === 'unit_of_wage'} isAnimating={isShuffleRunning}>
+              <Field
+                label="Unit of Wage"
+                fieldName="unit_of_wage"
+                registerFieldRef={registerFieldRef}
+                isActive={activeField === 'unit_of_wage'}
+                isAnimating={isShuffleRunning}
+              >
                 <Select
                   name="unit_of_wage"
                   value={form.unit_of_wage}
@@ -321,7 +422,13 @@ export default function DashboardPage() {
                   disabled={isInputLocked}
                 />
               </Field>
-              <Field label="Full-Time Position" isActive={activeField === 'full_time_position'} isAnimating={isShuffleRunning}>
+              <Field
+                label="Full-Time Position"
+                fieldName="full_time_position"
+                registerFieldRef={registerFieldRef}
+                isActive={activeField === 'full_time_position'}
+                isAnimating={isShuffleRunning}
+              >
                 <Select
                   name="full_time_position"
                   value={form.full_time_position}
@@ -333,7 +440,13 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              <Field label="No. of Employees" isActive={activeField === 'no_of_employees'} isAnimating={isShuffleRunning}>
+              <Field
+                label="No. of Employees"
+                fieldName="no_of_employees"
+                registerFieldRef={registerFieldRef}
+                isActive={activeField === 'no_of_employees'}
+                isAnimating={isShuffleRunning}
+              >
                 <input
                   type="number"
                   name="no_of_employees"
@@ -346,7 +459,13 @@ export default function DashboardPage() {
                   required
                 />
               </Field>
-              <Field label="Year of Establishment" isActive={activeField === 'yr_of_estab'} isAnimating={isShuffleRunning}>
+              <Field
+                label="Year of Establishment"
+                fieldName="yr_of_estab"
+                registerFieldRef={registerFieldRef}
+                isActive={activeField === 'yr_of_estab'}
+                isAnimating={isShuffleRunning}
+              >
                 <input
                   type="number"
                   name="yr_of_estab"
@@ -360,7 +479,13 @@ export default function DashboardPage() {
                   required
                 />
               </Field>
-              <Field label="Prevailing Wage (USD)" isActive={activeField === 'prevailing_wage'} isAnimating={isShuffleRunning}>
+              <Field
+                label="Prevailing Wage (USD)"
+                fieldName="prevailing_wage"
+                registerFieldRef={registerFieldRef}
+                isActive={activeField === 'prevailing_wage'}
+                isAnimating={isShuffleRunning}
+              >
                 <input
                   type="number"
                   name="prevailing_wage"
@@ -382,12 +507,14 @@ export default function DashboardPage() {
                 onClick={handleShuffle}
                 disabled={isInputLocked}
                 whileHover={{ rotate: -1.5, scale: 1.015 }}
-                whileTap={{ scale: 0.98, y: 2 }}
+                whileTap={{ scale: isMobileViewport ? 0.96 : 0.98, y: isMobileViewport ? 3 : 2 }}
                 transition={{ type: 'spring', stiffness: 320, damping: 18 }}
-                className={`shuffle-button group relative flex min-h-12 items-center justify-center gap-2 rounded-xl border-[3px] border-gold/90 px-4 py-3 text-sm font-bold uppercase tracking-[0.14em] text-ivory ${isInputLocked ? 'cursor-not-allowed opacity-65' : ''}`}
+                className={`shuffle-button group relative flex min-h-12 items-center justify-center gap-2 rounded-xl border-[3px] border-gold/90 px-4 py-3 text-sm font-bold uppercase tracking-[0.14em] text-ivory ${isMobileViewport ? 'mobile-shuffle-button' : ''} ${mobileBurstActive ? 'mobile-shuffle-burst' : ''} ${isInputLocked ? 'cursor-not-allowed opacity-65' : ''}`}
                 aria-label="AI Shuffle"
               >
                 <span className="shuffle-ripple" />
+                <span className="mobile-shuffle-orbit mobile-shuffle-orbit-a" aria-hidden="true" />
+                <span className="mobile-shuffle-orbit mobile-shuffle-orbit-b" aria-hidden="true" />
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
                   <path d="M4 7h3c2.6 0 4.3 1.1 6.1 3.7l.4.6C15.3 14 17 15 19.6 15H22" />
                   <path d="M18 5l4 2-4 2" />
@@ -395,7 +522,7 @@ export default function DashboardPage() {
                   <path d="M18 13l4 2-4 2" />
                 </svg>
                 <span className="relative z-10">
-                  {isShuffleRunning ? 'Generating Scenario...' : 'AI Shuffle'}
+                  {isShuffleRunning ? (isMobileViewport ? 'Generating...' : 'Generating Scenario...') : 'AI Shuffle'}
                 </span>
               </motion.button>
 
@@ -407,10 +534,17 @@ export default function DashboardPage() {
                 {isLoading ? 'Calculating...' : 'Generate Estimate'}
               </AnimatedButton>
             </div>
+
+            {isMobileViewport ? (
+              <p className="text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-gold/85">
+                Tap AI Shuffle for a guided smart-scenario scroll
+              </p>
+            ) : null}
           </form>
         </SectionReveal>
 
-        <SectionReveal className="space-y-5" delay={0.06}>
+        <div ref={resultAnchorRef}>
+          <SectionReveal className="space-y-5" delay={0.06}>
           {isLoading ? (
             <div className="grid gap-4">
               <SkeletonCard />
@@ -526,17 +660,20 @@ export default function DashboardPage() {
               <p className="mt-2 text-sm text-ivory/70">A full result card, gauge, and trend analytics will appear here.</p>
             </div>
           )}
-        </SectionReveal>
+          </SectionReveal>
+        </div>
       </div>
     </div>
   );
 }
 
-function Field({ label, children, isActive = false, isAnimating = false }) {
+function Field({ label, children, fieldName, registerFieldRef, isActive = false, isAnimating = false }) {
   return (
     <label className={`grid gap-2 ${isAnimating ? 'field-animating' : ''}`}>
       <span className="text-xs uppercase tracking-[0.2em] text-gold">{label}</span>
-      <div className={`field-shell ${isActive ? 'field-active' : ''}`}>{children}</div>
+      <div ref={registerFieldRef ? registerFieldRef(fieldName) : undefined} className={`field-shell ${isActive ? 'field-active' : ''}`}>
+        {children}
+      </div>
     </label>
   );
 }
