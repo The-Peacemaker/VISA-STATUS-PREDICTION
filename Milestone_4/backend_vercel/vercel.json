@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/predict",
-      "destination": "/api/app"
+      "destination": "/api/predict"
     }
   ]
 }
