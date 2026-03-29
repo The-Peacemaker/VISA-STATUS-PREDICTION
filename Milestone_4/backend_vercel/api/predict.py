@@ -14,9 +14,29 @@ MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
 MODEL_PATH = MODELS_DIR / "best_model.joblib"
 SCALER_PATH = MODELS_DIR / "scaler.joblib"
 
-model = joblib.load(MODEL_PATH)
-scaler = joblib.load(SCALER_PATH)
-feature_columns = list(scaler.feature_names_in_)
+model = None
+scaler = None
+feature_columns: list[str] = []
+model_load_error: str | None = None
+
+
+def _ensure_model_loaded() -> None:
+    global model, scaler, feature_columns, model_load_error
+    if model is not None and scaler is not None and feature_columns:
+        return
+
+    try:
+        loaded_model = joblib.load(MODEL_PATH)
+        loaded_scaler = joblib.load(SCALER_PATH)
+        loaded_features = list(loaded_scaler.feature_names_in_)
+    except Exception as exc:
+        model_load_error = str(exc)
+        raise RuntimeError("Model artifacts failed to load") from exc
+
+    model = loaded_model
+    scaler = loaded_scaler
+    feature_columns = loaded_features
+    model_load_error = None
 
 # Practical defaults when reference aggregates are not bundled with the API.
 CONTINENT_AVG = {
@@ -59,6 +79,8 @@ def _wage_category_index(prevailing_wage: float) -> int:
 
 
 def _engineer_features(payload: dict) -> pd.DataFrame:
+    _ensure_model_loaded()
+
     application_month = _to_number(payload, "application_month", int)
     no_of_employees = _to_number(payload, "no_of_employees", int)
     yr_of_estab = _to_number(payload, "yr_of_estab", int)
@@ -107,6 +129,7 @@ def _predict(payload: dict) -> tuple[float, float, float, float]:
     The underlying ML model produces near-constant predictions (~38-39 days),
     so we apply domain-aware adjustments based on key features.
     """
+    _ensure_model_loaded()
     model_df = _engineer_features(payload)
     scaled_array = scaler.transform(model_df)
     
@@ -252,6 +275,10 @@ def predict_route():
     try:
         mean_pred, p10, p90, ood_score = _predict(payload)
         return _corsify(jsonify(_build_response(payload, mean_pred, p10, p90, ood_score)))
+    except RuntimeError:
+        error_payload = {"error": "Model artifacts are unavailable", "details": model_load_error}
+        error_response = _corsify(jsonify(error_payload))
+        return error_response, 503
     except ValueError as exc:
         error_response = _corsify(jsonify({"error": str(exc)}))
         return error_response, 400
@@ -262,4 +289,18 @@ def predict_route():
 
 @app.route("/", methods=["GET"])
 def health_route():
-    return jsonify({"status": "ok", "service": "visa-backend", "endpoint": "/api/predict"})
+    try:
+        _ensure_model_loaded()
+        model_ready = True
+    except RuntimeError:
+        model_ready = False
+
+    return jsonify(
+        {
+            "status": "ok",
+            "service": "visa-backend",
+            "endpoint": "/api/predict",
+            "modelReady": model_ready,
+            "modelError": model_load_error,
+        }
+    )
