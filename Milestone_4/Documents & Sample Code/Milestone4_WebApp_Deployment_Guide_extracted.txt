@@ -1,0 +1,343 @@
+MILESTONE 4
+Web App Development
+& Deployment
+Covers: Frontend Implementation · Backend Integration · Cloud Deployment · Testing · Scaling
+
+Milestone 4 Overview
+This milestone brings the entire project together. You have already built and trained a machine learning model to predict visa processing times. Now your objective is to make that model accessible to real users through a web interface — and to deploy it so it can be used from anywhere. By the end of Weeks 7 and 8, you should have a working, publicly accessible web application that accepts user inputs, runs your prediction model, and displays the result.
+
+The Four Core Tasks
+#
+Task
+What It Means
+1
+Frontend (Flask / Streamlit)
+Build the user-facing form where inputs are collected
+2
+Connect Backend Prediction Engine
+Wire the form to your trained ML model
+3
+Deploy on Cloud
+Make the app publicly accessible via Azure, AWS, or Heroku
+4
+Final Testing with Sample Cases
+Validate end-to-end correctness with diverse test inputs
+
+Key Principle
+The code samples that’s been provided is to show the structure and intent of each component.
+Your job is to understand WHY the code is written that way — not to copy it verbatim.
+Ask yourself: What would break if I changed this? What does this function depend on?
+What would a real user see if this step failed silently?
+
+Task 1 — Implement the Frontend
+The frontend is the interface between your machine learning model and the end user. Its job is simple: collect inputs from the user in a structured way, send them to the prediction engine, and display the result clearly. For this project, you are using Streamlit — a Python library that turns scripts into interactive web apps without requiring any HTML, CSS, or JavaScript knowledge.
+Understanding What Streamlit Does
+Streamlit works differently from traditional web frameworks. In Flask or Django, you write separate HTML templates and route handlers. In Streamlit, every Python statement that calls a widget (like st.selectbox or st.date_input) automatically renders a UI element when the script runs. Streamlit re-runs the entire script from top to bottom every time a user interacts with the form.
+
+Important Mental Model
+Think of your Streamlit app.py as a recipe that runs front-to-back on every user interaction.
+The st.selectbox for Country runs first, then Visa Type, then Application Date, then the button.
+If the button has not been clicked, the predict block is skipped entirely.
+This means the order of your widget declarations determines the layout of your page.
+
+The Three Input Fields — Why These?
+The form collects three pieces of information. Before writing any code, think carefully about what each field represents and why the model needs it.
+
+Country of Application
+The country from which the visa is being applied for is one of the strongest predictors of processing time. Different embassies and consulates have different staffing levels, processing capacities, and bilateral agreements. The selectbox widget creates a dropdown so users can only choose from valid, known countries — preventing free-text input that your encoder cannot handle.
+Think about: What happens if the user's country is not in your training data? How should the app respond?
+Think about: Should this be a selectbox (fixed list) or a text_input? What are the tradeoffs?
+
+Visa Type
+Different visa categories have fundamentally different processing workflows. A student visa requires university verification; a work visa requires employer sponsorship checks; a tourist visa is typically straightforward. Your model learned these distinctions during training — the frontend must present the same category names that the encoder was trained on.
+Think about: What would happen if the user selects 'Work' in the app but the encoder was trained on 'Work Visa' (with the word Visa)? The encoder would raise an error or produce a wrong encoding.
+Think about: How would you validate that the dropdown options in your Streamlit app exactly match what the encoder was trained on?
+
+Application Date
+The date is not used as a raw date — it is feature-engineered into a month number before being passed to the model. This is because the month captures seasonal patterns (summer and holiday periods have higher application volumes) without the model needing to learn the concept of a raw date string.
+Think about: The st.date_input widget returns a Python date object, but the preprocess_input function expects it as a string. What conversion is happening, and where?
+Think about: If you wanted to also extract the day of the week as a feature, where in the pipeline would you add that?
+
+The Predict Button
+The if st.button('Predict Processing Time') block only executes when the user clicks the button. This is a critical pattern in Streamlit: conditional execution based on user interaction. Inside this block, you assemble the input dictionary, call your prediction function, and display the result.
+
+What to Think About
+The application_date is converted to a string with str(application_date) before being passed to the input dictionary. Why? Because the predict function's preprocessing step handles the string-to-datetime conversion internally. Trace this through: widget → str → dict → preprocess_input → pd.to_datetime.
+The result is displayed using st.success(), which renders a green success banner. What would you use instead if the prediction was an error or a warning?
+What should the app display while the prediction is being computed? For a fast model this is instant, but for a slow model, consider st.spinner().
+
+Flask as an Alternative
+The task description mentions Flask as an alternative to Streamlit. While the sample code uses Streamlit, it is worth understanding the key differences so you can make informed decisions in future projects.
+
+Dimension
+Streamlit
+Flask
+Setup complexity
+Minimal — pure Python
+Requires HTML templates + routes
+Customisation
+Limited to Streamlit components
+Full HTML/CSS/JS control
+Best for
+Data science prototypes, internal tools
+Production apps, REST APIs
+State management
+Session state via st.session_state
+Flask sessions or cookies
+Deployment
+Streamlit Community Cloud (free)
+Any WSGI host (Heroku, Azure, etc.)
+
+
+Task 2 — Connect the Backend Prediction Engine
+The prediction engine is the brain of your application. It consists of two files working in sequence: predict.py, which loads the trained model and encoders, preprocesses incoming user data, and returns a prediction; and the serialised model files (rf_model.pkl, country_encoder.pkl, visa_encoder.pkl), which are the saved outputs of your previous training milestone.
+
+Understanding the predict.py Pipeline
+Every prediction passes through two sequential stages: preprocessing and inference. If either stage fails — even partially — the prediction will be wrong or the app will crash. Understanding what each stage does and why it does it is more important than memorising the code.
+
+Stage 1 — Preprocessing (preprocess_input)
+Raw user input cannot be fed directly into a machine learning model. Models only understand numbers. The preprocessing function's job is to transform the user's selections (strings, a date) into the exact numerical format that the model was trained on.
+
+Step A: Creating a DataFrame
+The raw input dictionary is converted into a single-row Pandas DataFrame. This is necessary because the model's predict method expects a DataFrame with named columns, not a plain dictionary or a list. The column names must match exactly what the model was trained on — even a lowercase/uppercase mismatch will cause a failure.
+Think about: Why wrap a single row in a list ([data]) when creating the DataFrame? What would happen if you passed the dictionary directly without the list?
+
+Step B: Date Conversion and Feature Engineering
+The application_date string is converted to a datetime object using pd.to_datetime(). The month is then extracted from it. This is called feature engineering — creating a new, more useful representation of raw data. The original date column is then dropped because the model was not trained on raw dates.
+Think about: If a user applies in December (month 12) versus January (month 1), how does the model interpret the difference? Is month treated as a circular feature (December is close to January) or a linear one? How might this affect prediction accuracy?
+Think about: What other time-based features could you extract? Day of the week? Quarter? Is it a public holiday?
+
+Step C: Label Encoding
+The country and visa_type strings are converted to numbers using the saved LabelEncoders. These encoders learned the mapping (e.g. 'India' → 2, 'UK' → 3) during training. The exact same encoding must be applied at prediction time — otherwise the model sees a different number than it learned from.
+Think about: The encoders are loaded from .pkl files at module import time. What would happen if the pkl files are missing or corrupted when the app starts?
+Think about: What if a user selects a country that the encoder was never trained on? The transform call will raise a ValueError. How would you handle this gracefully — showing the user a friendly message instead of a crash?
+
+Stage 2 — Inference (predict_processing_time)
+Once the data is preprocessed, the model.predict() call is straightforward. It returns a numpy array, and you extract the first element ([0]) since there is only one row. The round() call formats the result to two decimal places before returning it.
+
+The Model File (.pkl)
+The random forest model (rf_model.pkl) was saved using joblib.dump() in a previous milestone. Joblib serialises the entire model object — all its learned decision trees, hyperparameters, and internal state — into a binary file. Loading it with joblib.load() restores the model exactly as it was after training. You do not need to retrain anything.
+Think about: If you update your training data and retrain the model, you must also retrain and re-save the encoders. If the model file is replaced but the encoder files are not, predictions will be silently incorrect because the encoding mapping will no longer match what the model learned.
+
+Connecting Frontend to Backend
+In app.py, the connection is a single import: from predict import predict_processing_time. When Streamlit runs app.py, Python executes this import, which triggers the loading of all three pkl files. If any pkl file is missing, the import will fail immediately and the app will not start.
+Think about: This means the pkl files must exist in the same directory as predict.py when the app is deployed. How will you ensure they are included in your deployment package?
+Think about: What is the cost of loading the model on every import versus loading it once? Streamlit re-runs the script on every user interaction — but Python's module import caching means the pkl files are only loaded once per session, not on every button click.
+Task 3 — Deploy on Cloud
+Deployment is the process of making your application accessible to users on the internet. Locally, your app runs on your machine only. Once deployed, anyone with the URL can use it. The three platforms mentioned — Azure, AWS, and Heroku — all accomplish the same goal but through different mechanisms, pricing models, and levels of complexity.
+
+Pre-Deployment Checklist
+Before deploying to any platform, you need to prepare your project. A deployment that is not properly prepared will fail — often with cryptic errors that are hard to debug remotely.
+
+1. requirements.txt
+This file lists all Python packages your application needs. When you deploy, the cloud platform creates a fresh virtual environment and installs packages from this file. If a package is missing from requirements.txt — even if it is installed on your local machine — the deployed app will crash at startup.
+The minimum packages for this project are: streamlit, pandas, scikit-learn, joblib.
+Pin your package versions (e.g. streamlit==1.35.0) to prevent future updates from breaking your app.
+Generate an accurate file by running pip freeze > requirements.txt in your project's virtual environment — not your global Python installation.
+
+2. Model Files Must Be Included
+The three .pkl files (rf_model.pkl, country_encoder.pkl, visa_encoder.pkl) are not Python packages — they are data files that must be explicitly included in your deployment. If they are in your .gitignore, they will not be included in your repository and the deployed app will fail to start.
+
+3. Secrets and Environment Variables
+For this project there are no API keys or passwords. However, if your application grows to include a database connection or an external API, credentials must never be hardcoded in your source code. Use environment variables and your platform's secrets management instead.
+
+Deployment on Streamlit Community Cloud (Recommended for Beginners)
+Streamlit Community Cloud is the simplest deployment path for Streamlit apps. It is free for public repositories and requires no server configuration. It directly reads your GitHub repository and deploys it automatically.
+
+Push your project to a public GitHub repository. Ensure all pkl files are committed.
+Create an account at share.streamlit.io and connect it to your GitHub account.
+Select your repository, branch, and the main app file (app.py). Click Deploy.
+Streamlit Cloud installs your requirements.txt, starts the app, and gives you a public URL.
+
+What to Watch For
+Streamlit Cloud runs on Linux. File paths that work on Windows (using backslashes) may fail.
+Always use os.path.join() or forward slashes for file paths to ensure cross-platform compatibility.
+The app sleeps after inactivity on the free tier — the first load after sleep will be slow.
+
+
+
+Deployment on Heroku
+Heroku is a general-purpose cloud application platform that supports Python web apps. It requires slightly more configuration than Streamlit Cloud but gives you more control and works with any Python framework.
+
+Additional Files Required for Heroku
+Procfile — tells Heroku how to start your app. For Streamlit, this specifies the command to run streamlit run app.py on the correct port.
+setup.sh — a shell script that configures Streamlit's server settings for Heroku's environment (headless mode, correct port binding).
+
+Deployment Steps
+Install the Heroku CLI and log in.
+Initialise a git repository in your project if you have not already.
+Create a new Heroku app with heroku create.
+Push your code to Heroku's git remote. Heroku automatically detects Python, installs requirements.txt, and runs your Procfile.
+Open the app with heroku open.
+
+Deployment on Azure App Service
+Azure App Service is Microsoft's managed platform for web applications. It is more enterprise-grade than Heroku and integrates naturally with other Azure services (Azure ML, Azure Monitor, Azure Key Vault).
+
+Deployment Approaches on Azure
+ZIP Deploy — package your entire project folder into a ZIP file and deploy it via the Azure CLI or Azure Portal. Simplest for beginners.
+Docker Container — containerise your app with a Dockerfile and deploy the image to Azure Container Registry, then run it in Azure Container Apps. More complex but more portable.
+GitHub Actions Integration — Azure provides CI/CD templates that automatically redeploy your app whenever you push to a specific branch.
+
+Key Considerations for Azure
+Azure App Service runs on Linux by default for Python. Your startup command must be configured to run streamlit run app.py --server.port 8000 --server.address 0.0.0.0.
+The pkl model files must be part of the deployment package. Consider storing large model files in Azure Blob Storage and downloading them at startup if they exceed the deployment size limit.
+
+Deployment on AWS
+AWS offers multiple paths for deploying Python web apps. For a Streamlit app, the most accessible options are AWS Elastic Beanstalk (managed deployment) and AWS EC2 (manual server setup).
+
+Elastic Beanstalk — upload a ZIP of your app, and Beanstalk handles provisioning, load balancing, and scaling automatically. Similar to Heroku but within the AWS ecosystem.
+EC2 with Nginx — provision a virtual machine, install Python and your dependencies manually, run your Streamlit app as a background process, and configure Nginx as a reverse proxy to serve it on port 80.
+AWS Lambda + API Gateway — for a more advanced architecture, expose your prediction function as a serverless REST API, separate from the frontend.
+Task 4 — Final Testing with Multiple Sample Cases
+Testing at this stage is about validating the complete, end-to-end system — not just individual functions. The test_cases.py file demonstrates a structured approach: define a representative set of inputs that cover different combinations of country, visa type, and time of year, then run all of them through the full pipeline and inspect the outputs.
+
+Why These Four Test Cases?
+Look at the four test cases in the sample code. They are not random. Each one is chosen to probe a different dimension of the model's behaviour.
+
+#
+Country
+Visa Type
+Month
+What It Tests
+1
+India
+Student
+January
+High-volume country, common visa, start of year
+2
+USA
+Work
+March
+Low-volume country, complex visa type, Q1
+3
+UK
+Tourist
+June
+Mid-volume country, simple visa, summer peak
+4
+India
+Work
+November
+Same country as Case 1, different visa, year-end
+
+What to Look for in the Output
+Running the test cases and printing the predictions is only the first step. You need to reason about whether the outputs make sense.
+
+
+
+Sanity Checks
+Are all predictions positive numbers? A prediction of -3 days would be nonsensical and would indicate a model or preprocessing error.
+Are predictions within a plausible range? Visa processing typically takes between 3 and 90 days. A prediction of 500 days would be suspicious.
+Do predictions vary across cases? If all four test cases return the same number, the model may not be using all the features correctly.
+Does Case 1 (India, Student) differ from Case 4 (India, Work)? It should, since the visa type changed. If they are identical, the visa_type encoding may not be working.
+
+Comparative Reasoning
+Beyond sanity checking, think about directionality. Based on domain knowledge about visa processing, which predictions should be higher and which lower? If you know that work visas generally take longer than tourist visas, does your model reflect this? If not, it is worth revisiting your training data.
+
+Edge Case Testing
+The four standard cases test the happy path. You should also manually test edge cases that are not in the sample code:
+A date on December 31 — does the month extraction (month = 12) work correctly?
+A date on January 1 — is month = 1, not month = 0 or month = 13?
+A country that is in the training data but was rarely seen — does the model still return a reasonable number?
+
+Testing the Frontend Separately
+The test_cases.py file tests the prediction pipeline directly, bypassing the Streamlit interface. You should also test the frontend independently:
+Open the deployed app URL in a browser and manually complete the form for each of the four test cases. Verify that the displayed result matches what test_cases.py outputs.
+Try submitting the form without selecting a country — does Streamlit handle this gracefully, or does it crash?
+Try selecting a date far in the future (e.g., 2030) — does the app produce a result, and is it sensible?
+Additional Features & Scaling the Solution
+The four tasks above build a solid, functional tool. The features below represent the next tier of development — improvements that make the tool more accurate, more useful, more reliable, and more scalable. These are appropriate for those who want to go beyond the baseline requirements.
+
+1. Expanded Input Features
+The current model uses only three inputs. Processing time prediction can be made significantly more accurate by adding more features.
+
+Application Centre Type — whether the application was submitted at a VFS Global centre, an embassy directly, or an online portal. Each channel has different processing speeds.
+Applicant Travel History — the number of previous visas granted to the same applicant. Repeat applicants with clean records are typically processed faster.
+Document Completeness Score — a flag indicating whether all required documents were submitted in the first attempt versus requiring follow-up requests.
+Peak Season Indicator — a derived boolean feature that flags whether the application date falls within known peak periods (summer, holiday season) for the destination country.
+
+Important Reminder
+Every new input feature added to the frontend must also be added to the preprocessing pipeline
+in predict.py, and the model must be retrained with this feature in the training data.
+Adding a field to the Streamlit form without retraining will cause a column mismatch error.
+
+2. Confidence Intervals and Uncertainty Communication
+The current implementation returns a single point estimate — for example, '14 days'. This can be misleading because the model has uncertainty in its prediction. A more honest and useful output would be a range: 'Expected processing time: 12 to 17 days.'
+
+Random forest models can return the predictions of all individual trees, not just their average. The spread of these predictions gives you a natural confidence interval.
+You could display the minimum and maximum of the individual tree predictions alongside the mean, giving the user a more realistic expectation.
+A visual progress bar or gauge (using st.progress or Plotly) would make the uncertainty range much more intuitive than a number.
+
+3. Prediction History and Session Logging
+Currently, each prediction is independent — the user runs the form, sees a result, and the data is gone. Adding a session history feature would let users compare multiple scenarios.
+
+Streamlit's st.session_state dictionary persists data across re-runs within the same user session. You can append each prediction result to a list in session_state and display it as a table below the form.
+For persistent logging across sessions, write each prediction (with a timestamp) to a CSV file or a lightweight database (SQLite). This data becomes valuable for monitoring model drift over time.
+A 'Download Results' button using st.download_button would allow users to export their prediction history as a CSV.
+
+4. Model Retraining Pipeline
+As new visa processing data becomes available, the model should be retrained to reflect current processing times — which change due to policy shifts, staffing levels, and geopolitical events. A static model trained once will drift in accuracy over time.
+
+Schedule a monthly retraining job using a cloud-native scheduler (Azure Functions Timer Trigger, AWS Lambda with EventBridge, or GitHub Actions cron jobs).
+The retraining job pulls fresh data from your data source, trains a new model, evaluates it against a holdout set, and only replaces the production pkl file if the new model is more accurate.
+Implement model versioning — store each pkl file with a version number and timestamp so you can roll back to a previous version if the new one performs unexpectedly.
+
+5. REST API Wrapper
+The Streamlit interface is excellent for human users but cannot be consumed programmatically by other systems. Wrapping the prediction engine in a REST API with FastAPI opens up a much wider range of integration possibilities.
+
+A POST /predict endpoint that accepts JSON (country, visa_type, application_date) and returns a JSON response with the predicted days and confidence interval.
+This API could be called by a mobile app, a travel agency's booking system, or an embassy's internal dashboard — all consuming the same underlying model.
+Deploy the FastAPI app alongside the Streamlit app on the same cloud instance, or as a separate microservice for better isolation.
+
+6. Multi-Model Comparison
+The current implementation uses a single random forest model. A more robust system would train multiple models (Random Forest, Gradient Boosting, XGBoost, a simple Linear Regression baseline) and allow the user to select which model's prediction to view — or show all of them simultaneously for comparison.
+
+This is particularly useful for model evaluation: if the Random Forest and XGBoost agree closely but Linear Regression is far off, you have high confidence in the non-linear models' prediction.
+Add a st.radio widget to the frontend to let users switch between models. Each model has its own pkl file, and the predict function loads the appropriate one based on the selection.
+
+7. Monitoring & Drift Detection
+Once deployed in production, the model needs to be watched. Model drift occurs when the real-world data distribution changes — for example, if a new bilateral agreement significantly reduces processing times for a country, the model (trained on old data) will consistently over-predict.
+
+Log every prediction made in production: inputs, predicted value, and timestamp.
+Periodically compare the distribution of predictions against historical actuals (if you have access to real processing time data). A widening gap indicates drift.
+Set up an alert (email, Slack webhook) that triggers if the average predicted value changes by more than a threshold (e.g., 20%) week-over-week.
+
+8. Containerisation with Docker
+As the project grows — adding a FastAPI backend, a database, a scheduler — managing these components together becomes complex. Docker allows you to package each component into a container that runs identically on any machine or cloud platform.
+
+A Dockerfile for the Streamlit app specifies the base Python image, copies your project files, installs requirements.txt, and defines the startup command.
+Docker Compose allows you to run multiple containers together locally — for example, the Streamlit frontend, the FastAPI API, and a PostgreSQL database — with a single command.
+On Azure, deploy the Docker image to Azure Container Apps. On AWS, deploy to Elastic Container Service (ECS). Both services handle scaling, health checks, and rolling updates automatically.
+Quick Reference — Milestone 4 Checklist
+Use this checklist to verify that all deliverables are complete before submitting your Milestone 4 work.
+
+
+
+
+
+
+
+
+
+
+
+
+Deliverable / Check
+Streamlit app.py renders correctly with all three input widgets
+Prediction is triggered only on button click, not on every page re-run
+predict.py correctly loads all three pkl files without error
+preprocess_input converts date to month and drops the date column
+LabelEncoders match the categories used during training
+predict_processing_time returns a positive, plausible number
+requirements.txt includes all packages with pinned versions
+All pkl files are committed to the repository / included in deployment
+App deploys successfully and is accessible via a public URL
+All four test cases run without errors
+Predictions vary meaningfully across different input combinations
+Edge case dates (Jan 1, Dec 31) produce valid outputs
+Frontend and test_cases.py produce identical results for the same inputs
+
+Final Reminder
+The goal of this milestone is not just a working app — it is a deployable, explainable, and
+testable system. Be prepared to explain every line of backend prediction engine: what it does, why it isnecessary, and what would happen if it were removed. That understanding is the real deliverable.
+
